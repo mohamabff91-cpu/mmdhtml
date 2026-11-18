@@ -438,6 +438,8 @@ h2{font-size:17px;font-weight:800;margin:4px 0 12px}
 .cm-err{margin-top:14px;border:2px solid #fca5a5;background:#fef2f2;border-radius:16px;padding:14px;line-height:2;font-size:14px;color:#374151}
 .cm-err b{display:block;color:#dc2626;font-size:16px}
 .cm-note{font-size:12px;color:#6b7280;line-height:2;margin-top:16px}
+#cm-quick{margin-top:10px}#cm-quick .cm-ans{margin-top:8px}
+#cm-sy button{padding:8px 12px;font-size:15px}
 </style>
 </head>
 <body>
@@ -678,13 +680,15 @@ h2{font-size:17px;font-weight:800;margin:4px 0 12px}
       </div>
       <div class="cm-sys" id="cm-sys" style="display:none"><button type="button" id="cm-sysbtn">عکس با دوربین گوشی</button></div>
       <div class="cm-prev" id="cm-prev" style="display:none">
-        <div class="cm-hint">اگر در عکس چیزهای اضافه هست، با انگشت روی خودِ مسئله یک کادر بکش تا فقط همان بخش خوانده شود.</div>
+        <div class="cm-hint">کادر نارنجی را با انگشت جابه‌جا کن یا از دایره‌های سفیدِ گوشه‌ها و کناره‌ها بکش تا فقط مسئله داخلش بماند. بیرون کادر بکشی، کادر تازه ساخته می‌شود.</div>
         <div class="cm-pw"><canvas id="cm-pc" width="10" height="10"></canvas><canvas id="cm-ov2" width="10" height="10"></canvas></div>
-        <div class="cm-row2"><button type="button" class="go" id="cm-read" disabled>بخوان و حل کن</button><button type="button" class="sm" id="cm-clearsel">برداشتن کادر</button></div>
+        <div class="cm-row2"><button type="button" class="go" id="cm-read" disabled>بخوان و حل کن</button><button type="button" class="sm" id="cm-clearsel">کل عکس</button><button type="button" class="sm" id="cm-rot" aria-label="چرخش عکس">⟳</button></div>
+        <div id="cm-quick"></div>
       </div>
       <div class="cm-lab">مسئله (از عکس خوانده می‌شود یا خودت بنویس)</div>
       <textarea class="cm-ta" id="cm-text" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="مثلاً: 2x+3=11"></textarea>
       <div class="cm-row2"><button type="button" class="go" id="cm-solve">حل کن</button><button type="button" class="sm" id="cm-clear">پاک کردن</button></div>
+      <div class="cm-lab">نمادها (اگر نمادی خوانده نشد، اینجا بزن تا به متن اضافه شود)</div><div class="cm-chips" id="cm-sy"></div>
       <div class="cm-chips"><button type="button" class="cm-ex" data-t="12+30×2">12+30×2</button><button type="button" class="cm-ex" data-t="3(x−2)=2x+5">3(x−2)=2x+5</button><button type="button" class="cm-ex" data-t="x²−5x+6=0">x²−5x+6=0</button><button type="button" class="cm-ex" data-t="2x+y=7&#10;x−y=2">دستگاه</button></div>
       <div id="cm-results"></div>
       <div class="cm-note">برای خواندن عکس، بار اول به اینترنت نیاز است. خط‌های چاپی و خوانا بهتر خوانده می‌شوند. اگر جایی اشتباه خوانده شد، در کادر بالا درستش کن و «حل کن» را بزن. حل مسئله خودش بدون اینترنت انجام می‌شود.</div>
@@ -2693,6 +2697,7 @@ function sCalc(){
   try{const r=compute(src,SVV);sShow(r);addHist(src,r.main)}
   catch(e){sErr(e.message||'محاسبه انجام نشد')}
 }
+window.__calcBridge={run:function(t){return compute(t,{})}};
 function sInfo(k){
   const I=getInfo(k);sCur=I;
   if(!I){$('xinfo').innerHTML='';return}
@@ -4623,7 +4628,7 @@ function solveAll(text){
 /* پاک‌سازی نوشتهٔ OCR (خطاهای رایج خواندن) */
 function cleanOcr(t){
   return String(t).split(/\r?\n/).map(l=>{
-    l=l.replace(/[^0-9A-Za-z+\-−–—×÷*/=<>≤≥()^.,%!:√²³·\s_?]/g,' ');
+    l=l.replace(/[^0-9A-Za-z+\-−–—×÷*/=<>≤≥≠≈()^.,%!:√∛∜π°²³∑∏∫∞±△□▭○▱◇⌒∠⊥∥∪∩⊂∈{}|·\s_?]/g,' ');
     l=l.replace(/(?<=\d)[Oo](?=\d|\b)/g,'0').replace(/(?<=\d)[lI|](?=\d|\b)/g,'1').replace(/(?<=\b)[Oo](?=\d)/g,'0');
     l=l.replace(/[ \t]+/g,' ').trim();
     return l;
@@ -4686,25 +4691,65 @@ function cmFile(file){
   img.src=url;
 }
 function cmUseCanvas(c){
-  CM.canvas=c;CM.sel=null;cmMsg('');
+  CM.canvas=c;CM.sel={x:c.width*.06,y:c.height*.06,w:c.width*.88,h:c.height*.88};cmMsg('');
   const pv=$c('cm-prev'),pc=$c('cm-pc');
   pc.width=c.width;pc.height=c.height;pc.getContext('2d').drawImage(c,0,0);
   $c('cm-ov2').width=c.width;$c('cm-ov2').height=c.height;cmDrawSel();
   pv.style.display='';$c('cm-read').disabled=false;
-  $c('cm-results').innerHTML='';
+  $c('cm-results').innerHTML='';$c('cm-quick').innerHTML='';
 }
 function cmDrawSel(){
   const o=$c('cm-ov2'),x=o.getContext('2d');x.clearRect(0,0,o.width,o.height);
   if(!CM.sel)return;
-  const s=CM.sel;x.fillStyle='rgba(0,0,0,.45)';x.fillRect(0,0,o.width,o.height);x.clearRect(s.x,s.y,s.w,s.h);
-  x.strokeStyle='#ff6a00';x.lineWidth=Math.max(3,o.width/200);x.strokeRect(s.x,s.y,s.w,s.h);
+  const s=CM.sel,rc=o.getBoundingClientRect(),k=rc.width?o.width/rc.width:1;
+  x.fillStyle='rgba(0,0,0,.5)';x.fillRect(0,0,o.width,o.height);x.clearRect(s.x,s.y,s.w,s.h);
+  x.strokeStyle='#ff6a00';x.lineWidth=3*k;x.strokeRect(s.x,s.y,s.w,s.h);
+  x.fillStyle='#fff';
+  [[0,0],[.5,0],[1,0],[0,.5],[1,.5],[0,1],[.5,1],[1,1]].forEach(a=>{x.beginPath();x.arc(s.x+s.w*a[0],s.y+s.h*a[1],11*k,0,7);x.fill();x.stroke()});
+}
+function cmRotate(){
+  const c=CM.canvas;if(!c)return;
+  const n=document.createElement('canvas');n.width=c.height;n.height=c.width;
+  const x=n.getContext('2d');x.translate(n.width,0);x.rotate(Math.PI/2);x.drawImage(c,0,0);cmUseCanvas(n);
 }
 (function(){
-  const o=()=>$c('cm-ov2');let st=null;
-  const pt=e=>{const r=o().getBoundingClientRect();return {x:Math.max(0,Math.min(o().width,(e.clientX-r.left)*o().width/r.width)),y:Math.max(0,Math.min(o().height,(e.clientY-r.top)*o().height/r.height))}};
-  document.addEventListener('pointerdown',e=>{if(e.target!==o())return;st=pt(e);try{o().setPointerCapture(e.pointerId)}catch(x){}e.preventDefault()});
-  document.addEventListener('pointermove',e=>{if(!st)return;const p=pt(e);CM.sel={x:Math.min(st.x,p.x),y:Math.min(st.y,p.y),w:Math.abs(p.x-st.x),h:Math.abs(p.y-st.y)};cmDrawSel()});
-  document.addEventListener('pointerup',()=>{if(!st)return;st=null;if(CM.sel&&(CM.sel.w<20||CM.sel.h<20)){CM.sel=null;cmDrawSel()}});
+  const o=()=>$c('cm-ov2');let d=null;const MIN=40;
+  const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const pt=e=>{const r=o().getBoundingClientRect();return {x:cl((e.clientX-r.left)*o().width/r.width,0,o().width),y:cl((e.clientY-r.top)*o().height/r.height,0,o().height)}};
+  function hit(p){
+    const s=CM.sel;if(!s)return null;
+    const r=o().getBoundingClientRect(),T=32*(o().width/r.width),T2=T*T;
+    let best=null,bd=T2;
+    [[s.x,'l'],[s.x+s.w/2,''],[s.x+s.w,'r']].forEach(a=>[[s.y,'t'],[s.y+s.h/2,''],[s.y+s.h,'b']].forEach(b=>{
+      if(!a[1]&&!b[1])return;
+      const q=(p.x-a[0])**2+(p.y-b[0])**2;if(q<bd){bd=q;best=b[1]+a[1]}
+    }));
+    if(best)return best;
+    return p.x>s.x&&p.x<s.x+s.w&&p.y>s.y&&p.y<s.y+s.h?'move':null;
+  }
+  document.addEventListener('pointerdown',e=>{
+    if(e.target!==o())return;
+    const p=pt(e),h=hit(p);
+    d={h:h||'new',p:p,s:CM.sel?Object.assign({},CM.sel):null};
+    try{o().setPointerCapture(e.pointerId)}catch(x){}e.preventDefault();
+  });
+  document.addEventListener('pointermove',e=>{
+    if(!d)return;
+    const p=pt(e),W=o().width,H=o().height,s=d.s,dx=p.x-d.p.x,dy=p.y-d.p.y;
+    if(d.h==='new'){CM.sel={x:Math.min(d.p.x,p.x),y:Math.min(d.p.y,p.y),w:Math.abs(p.x-d.p.x),h:Math.abs(p.y-d.p.y)}}
+    else if(d.h==='move'){CM.sel={x:cl(s.x+dx,0,W-s.w),y:cl(s.y+dy,0,H-s.h),w:s.w,h:s.h}}
+    else{
+      let x1=s.x,y1=s.y,x2=s.x+s.w,y2=s.y+s.h;
+      if(d.h.indexOf('l')>=0)x1=cl(s.x+dx,0,x2-MIN);
+      if(d.h.indexOf('r')>=0)x2=cl(s.x+s.w+dx,x1+MIN,W);
+      if(d.h.indexOf('t')>=0)y1=cl(s.y+dy,0,y2-MIN);
+      if(d.h.indexOf('b')>=0)y2=cl(s.y+s.h+dy,y1+MIN,H);
+      CM.sel={x:x1,y:y1,w:x2-x1,h:y2-y1};
+    }
+    cmDrawSel();
+  });
+  const end=()=>{if(!d)return;if(d.h==='new'&&CM.sel&&(CM.sel.w<MIN||CM.sel.h<MIN))CM.sel=d.s;d=null;cmDrawSel()};
+  document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
 })();
 
 /* ───── آماده‌سازی عکس برای خواندن ───── */
@@ -4749,7 +4794,7 @@ async function cmOcr(){
     else if(m&&/loading|initializ/i.test(m.status||''))cmMsg('info','در حال آماده‌سازی موتور خواندن (بار اول کمی طول می‌کشد)…');
   }});
   try{
-    await worker.setParameters({tessedit_char_whitelist:'0123456789+-−×÷*/=<>()^.,%!:xyzabcmnpqrtXYZ ',tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});
+    await worker.setParameters({tessedit_char_whitelist:'0123456789+-−×÷*/=<>()^.,%!:xyzabcmnpqrtXYZ √π°²³∑∏∫∞≠≈±△□○ ',tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});
     const p=cmPrepare();
     let r=await worker.recognize(p.bin),txt=cleanOcr(r.data&&r.data.text||'');
     if(!/\d/.test(txt)){r=await worker.recognize(p.gray);txt=cleanOcr(r.data&&r.data.text||'')}
@@ -4772,19 +4817,49 @@ async function cmRead(){
 }
 
 /* ───── حل و نمایش ───── */
+const CM_GEO='△□▭○▱◇⌒∑∏∫∪∩⊂⊄∈∥⊥∠∞≅∼°π';
+const CM_SH={'△':'مثلث','□':'مربع','▭':'مستطیل','○':'دایره','▱':'متوازی‌الاضلاع','◇':'لوزی','⌒':'کمان'};
+const CM_SHN={1:['□','○'],2:['▭','▱','◇','⌒'],3:['△']};
+function cmSymRun(text){
+  const B=window.__calcBridge;if(!B)return [];
+  return String(text).split(/[\n؛;]+/).map(s=>s.trim()).filter(Boolean).slice(0,6).map(l=>{
+    try{const r=B.run(l);return {problem:l,title:'حل با نمادهای ماشین‌حساب',lines:r.lines||[],answer:String(r.main)}}
+    catch(e){return {problem:l,error:(e&&e.message)||'این نماد حل نشد'}}
+  });
+}
+function cmGuess(text){
+  const m=String(text).trim().match(/^\(?\s*([\d.۰-۹]+(?:\s*[,،]\s*[\d.۰-۹]+){0,2})\s*\)?$/);if(!m)return '';
+  const a=m[1].replace(/\s*،\s*/g,',').replace(/\s+/g,''),n=a.split(',').length,L=CM_SHN[n]||[];
+  if(!L.length)return '';
+  return '<div class="cm-msg warn">نماد شکل در عکس خوانده نشد. این عددها مال کدام شکل است؟</div><div class="cm-chips">'+L.map(g=>'<button type="button" data-g="'+g+'('+cmEsc(a)+')">'+g+' '+CM_SH[g]+'</button>').join('')+'</div>';
+}
 function cmSolve(){
-  const text=$c('cm-text').value;const out=$c('cm-results');
+  const text=$c('cm-text').value,out=$c('cm-results'),q=$c('cm-quick');q.innerHTML='';
   if(!text.trim()){out.innerHTML='<div class="cm-err"><b>مسئله‌ای نوشته نشده</b>یک مسئله بنویس یا از عکس بخوان.</div>';return}
-  let res;
-  try{res=solveAll(text)}catch(e){
-    out.innerHTML='<div class="cm-err"><b>مسئلهٔ ریاضی پیدا نشد</b>'+cmEsc(e instanceof MErr?e.message:'متن قابل فهم نبود. مسئله را مثل «2x+3=11» یا «12+30×2» بنویس.')+'</div>';return;
+  let res=null;
+  if([...text].some(c=>CM_GEO.indexOf(c)>=0))res=cmSymRun(text);
+  else{
+    try{res=solveAll(text);if(res.every(r=>r.error)){const a=cmSymRun(text);if(a.some(r=>!r.error))res=a}}
+    catch(e){
+      const a=cmSymRun(text);
+      if(a.some(r=>!r.error))res=a;
+      else{
+        const g=cmGuess(text);
+        out.innerHTML=g||'<div class="cm-err"><b>مسئلهٔ ریاضی پیدا نشد</b>'+cmEsc(e instanceof MErr?e.message:'متن قابل فهم نبود. مسئله را مثل «2x+3=11» یا «12+30×2» بنویس.')+'</div>';
+        return;
+      }
+    }
   }
   out.innerHTML=res.map((r,i)=>{
     const head='<div class="cm-ph"><span class="cm-n">'+(res.length>1?'مسئله '+(i+1):'مسئله')+'</span>'+cmL(r.problem)+'</div>';
     if(r.error)return '<div class="cm-card err">'+head+'<div class="cm-errt">⚠️ '+cmEsc(r.error)+'</div></div>';
-    const steps=r.steps.map((s,k)=>'<li><div class="cm-st">'+cmEsc(s.t)+'</div>'+(s.m?'<div class="cm-m">'+cmEsc(s.m).replace(/\n/g,'<br>')+'</div>':'')+'</li>').join('');
-    return '<div class="cm-card">'+head+'<div class="cm-kind">'+cmEsc(r.title)+'</div><div class="cm-h">راه‌حل مرحله‌به‌مرحله</div><ol>'+steps+'</ol><div class="cm-ans"><span>جواب نهایی</span><div>'+cmEsc(r.answer).replace(/\n/g,'<br>')+'</div></div></div>';
+    const ans='<div class="cm-ans"><span>جواب نهایی</span><div>'+cmEsc(r.answer).replace(/\n/g,'<br>')+'</div></div>';
+    if(r.lines)return '<div class="cm-card">'+head+'<div class="cm-kind">'+cmEsc(r.title)+'</div>'+r.lines.map(l=>'<div class="cm-st" style="margin-bottom:8px">'+l+'</div>').join('')+ans+'</div>';
+    const steps=r.steps.map(s=>'<li><div class="cm-st">'+cmEsc(s.t)+'</div>'+(s.m?'<div class="cm-m">'+cmEsc(s.m).replace(/\n/g,'<br>')+'</div>':'')+'</li>').join('');
+    return '<div class="cm-card">'+head+'<div class="cm-kind">'+cmEsc(r.title)+'</div><div class="cm-h">راه‌حل مرحله‌به‌مرحله</div><ol>'+steps+'</ol>'+ans+'</div>';
   }).join('');
+  q.innerHTML=res.filter(r=>!r.error).map(r=>'<div class="cm-ans"><span>جواب</span><div>'+cmEsc(r.answer).replace(/\n/g,'<br>')+'</div></div>').join('');
+  if(q.innerHTML)try{q.scrollIntoView({block:'nearest',behavior:'smooth'})}catch(e){}
 }
 
 /* ───── اتصال دکمه‌ها ───── */
@@ -4805,9 +4880,18 @@ function cmSolve(){
   $c('cm-f1').addEventListener('change',e=>{cmFile(e.target.files&&e.target.files[0]);e.target.value=''});
   $c('cm-f2').addEventListener('change',e=>{cmFile(e.target.files&&e.target.files[0]);e.target.value=''});
   $c('cm-read').addEventListener('click',cmRead);
-  $c('cm-clearsel').addEventListener('click',()=>{CM.sel=null;cmDrawSel()});
+  $c('cm-clearsel').addEventListener('click',()=>{const c=CM.canvas;if(!c)return;CM.sel={x:0,y:0,w:c.width,h:c.height};cmDrawSel()});
+  $c('cm-rot').addEventListener('click',cmRotate);
+  $c('cm-results').addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(!b)return;$c('cm-text').value=b.dataset.g;cmSolve()});
+  const SYI='△ □ ▭ ○ ▱ ◇ ⌒ ∑ ∏ ∫ √ ∛ π ° ∠ ⊥ ∥ ∪ ∩ ⊂ ∈ ≤ ≥ ≠ ≈ ^ ² ³ ( ) , !'.split(' ');
+  $c('cm-sy').innerHTML=SYI.map(s=>'<button type="button" data-s="'+s+'">'+s+'</button>').join('');
+  $c('cm-sy').addEventListener('click',e=>{
+    const b=e.target.closest('[data-s]');if(!b)return;
+    const t=$c('cm-text'),s=b.dataset.s,v='△□▭○▱◇⌒∑∏∫'.indexOf(s)>=0?s+'(':s,a=t.selectionStart==null?t.value.length:t.selectionStart,z=t.selectionEnd==null?a:t.selectionEnd;
+    t.value=t.value.slice(0,a)+v+t.value.slice(z);t.setSelectionRange(a+v.length,a+v.length);
+  });
   $c('cm-solve').addEventListener('click',cmSolve);
-  $c('cm-clear').addEventListener('click',()=>{$c('cm-text').value='';$c('cm-results').innerHTML='';cmMsg('')});
+  $c('cm-clear').addEventListener('click',()=>{$c('cm-text').value='';$c('cm-results').innerHTML='';$c('cm-quick').innerHTML='';cmMsg('')});
   document.querySelectorAll('.cm-ex').forEach(x=>x.addEventListener('click',()=>{$c('cm-text').value=x.dataset.t;cmSolve()}));
 })();
 
